@@ -1,0 +1,719 @@
+%This version of the strength script has been edited by Alex Wernle for
+%different grids and geometries. THIS SCRIPT ONLY WORKS IF IT IS WITHIN THE
+%FILE YOU ARE READING
+figure('position', [.2 .2 1500 750])
+%fig1=figure('position', [100 100 1000 1000]);
+set(gcf, 'color', 'white');
+
+
+clear numcols1 numcols2 numrows modelbase tsval temp_data xy_data y_data x_data;
+clear vel_data vx_data vy_data; 
+clear all
+
+%number of time-steps in each file=> must change to save the avi file
+trang=40;
+%keep track of time when switching directories
+timehist=0;
+%open the file for the movie
+timetmp=clock;
+%Define domain size--currently set for a 20x40 grid
+numcols1=81; % #of nodes within rows with max nodes
+numcols2=41;
+numrows=41;
+
+% MUST CHANGE MODELBASE TO MATCH THE LITHOSPHERIC THICKNESS
+modelbase=100;
+% MUST CHANGE MODELBASE TO MATCH THE LITHOSPHERIC THICKNESS
+modelright=1500;
+model_left=-500
+%node # at bottom of the crust= # of crustRows*2 +1
+botcrust=17;
+A_dc=1.0e-18;% 5.0e-18
+    A_dm=4e-25;
+    Qc=219*1000;%Variables are correct
+    Qm=498*1000;
+    nc=2.4; 
+    nm=4.5; 
+    S=60;
+    B=11;
+    R=8.3;
+    st_rate=1e-14;% 1.0e-15?
+
+    %number of nodes in domain - i.e., number of values to read per time step
+tsval=numcols1*ceil(numrows/2)+numcols2*floor(numrows/2)+1
+
+clear F
+frame_cnt=0;
+hf_cnt=0;
+
+
+
+
+%read in the temperature data
+fid=fopen('tmp.dat', 'r','l');%('file.name', 'permission', 'machineformat')
+%machine format 
+%     'n' for native
+%     'b' for Big-endian
+%     'l' for little endian
+%     's' for big-endian, 64 bit data
+%     'a' little endian, 64 bit data
+temp_data=fread(fid, inf, 'float64',8);
+fclose(fid);
+
+
+%read in the xy data
+fid=fopen('msh.dat', 'r','l');%('file.name', 'permission', 'machineformat')
+%machine format 
+%     'n' for native
+%     'b' for Big-endian
+%     'l' for little endian
+%     's' for big-endian, 64 bit data
+%     'a' little endian, 64 bit data
+fread(fid, 6,'float64');
+xy_data=fread(fid, inf, 'float64');
+
+y_data=xy_data(1:2:end);
+x_data=xy_data(2:2:end);
+
+fclose(fid);
+
+
+%read in the velocity data
+fid=fopen('vel.dat', 'r', 'l');%('file.name', 'permission', 'machineformat')
+%machine format 
+%     'n' for native
+%     'b' for Big-endian
+%     'l' for little endian
+%     's' for big-endian, 64 bit data
+%     'a' little endian, 64 bit data
+fread(fid,2,'float64');
+vel_data=fread(fid, inf, 'float64');
+
+%add zeros, no zero time step velocity
+vel_data=[zeros(tsval*2,1); vel_data];
+
+vx_data=vel_data(1:2:end)./1e-10;
+vy_data=vel_data(2:2:end)./1e-10;
+fclose(fid);
+
+
+%size of region, x and y
+[xg yg]=meshgrid(model_left:1:modelright,0:1:modelbase);
+
+%yg=(yg-20);
+
+% [xg yg]=meshgrid(-600:2:1500,0:2:300);%----------FROM EPSL GRID----------------
+
+cnt=0;
+
+
+%go through each timestep
+for stint=1:tsval:tsval*trang;
+
+    
+    timesteptmp=zeros(numrows,numcols1);
+    xtmp=zeros(numrows,numcols1);
+    ytmp=zeros(numrows,numcols1);
+    tmpvx=zeros(numrows,numcols1);
+    tmpvy=zeros(numrows,numcols1);
+
+
+    cnt2=1;
+    %Get the data from each row
+    for n=1:numrows%numcols:length(tmp_data)/numcols
+
+
+        cnt=cnt+1;
+
+        tmpfile=temp_data(stint:stint+tsval-1);
+        tmpfile=tmpfile(2:end); 
+
+        tmpfilex=y_data(stint:stint+tsval-2);
+
+        tmpfiley=x_data(stint:stint+tsval-2);
+
+
+        tmpfilevx=vx_data(stint:stint+tsval-2);
+        tmpfilevy=vy_data(stint:stint+tsval-2);
+
+
+        %triangluar elements some rows are longer than others 
+         if rem(cnt,2)==0;
+
+             timesteptmp(cnt,1:2:end)=tmpfile(cnt2:cnt2+numcols2-1)';
+             xtmp(cnt,1:2:end)=tmpfilex(cnt2:cnt2+numcols2-1)';
+             ytmp(cnt,1:2:end)=tmpfiley(cnt2:cnt2+numcols2-1)';
+
+             tmpvx(cnt,1:2:end)=tmpfilevx(cnt2:cnt2+numcols2-1)';
+             tmpvy(cnt,1:2:end)=tmpfilevy(cnt2:cnt2+numcols2-1)';
+             cnt2=cnt2+numcols2;
+         else
+
+             timesteptmp(cnt,:)=tmpfile(cnt2:cnt2+numcols1-1)';
+             xtmp(cnt,:)=tmpfilex(cnt2:cnt2+numcols1-1)';
+             ytmp(cnt,:)=tmpfiley(cnt2:cnt2+numcols1-1)';
+
+              tmpvx(cnt,:)=tmpfilevx(cnt2:cnt2+numcols1-1)';
+             tmpvy(cnt,:)=tmpfilevy(cnt2:cnt2+numcols1-1)';
+
+
+             cnt2=cnt2+numcols1;
+
+         end
+
+ 
+
+         if cnt==numrows
+             cnt=0;
+         end
+
+    end
+    clf 
+        
+        
+   % h=39; %initial crustal thickness- no longer used
+
+    
+
+   strength1=zeros(size(xg))*NaN;
+
+    x1=xtmp;
+    z1=ytmp;
+    T1=timesteptmp;
+
+    cnt7=0;
+
+
+     ztmp=griddata(xtmp(:,1:2:end), (ytmp(:,1:2:end)-modelbase)*-1, T1(:,1:2:end), xg,yg,'cubic');
+
+     %ztmp=filter(ones(1,5)/5,1,ztmp);
+     %ztmp=filter(ones(1,5)/5,1,ztmp');
+     %ztmp=ztmp';
+
+% make values in matrices positive using abs function
+%ytmp = abs(ytmp); % doesnt work=> must make value ascend symmetrically,
+%write for loop?
+
+
+%NOTE:To calculate proper cdepth, you must divide modelbase/(x),
+%(about) because ytmp values are not correct (see below)
+%Y1 = ytmp(botcrust,1);
+%X1 = modelbase/((-30-Y1)*-1);
+
+  %v(1:2:end)   % Extract every second element from 1 to the end
+    %finding where bottom of crust is based on EPSL structure of lithosphere
+    cdepth=interp1(xtmp(botcrust,1:2:end), (ytmp(botcrust,1:2:end)-modelbase)*-1, xg(1,:));
+    %finding where bottom of model is 
+    modbot=interp1(xtmp(end,1:2:end), (ytmp(end,1:2:end)-modelbase)*-1, xg(1,:));
+
+
+    for uu=1:length(xg(1,:));
+      Br_str=[];
+      Duc_str=[];
+
+         if isnan(cdepth(uu)) == 0 
+            %Calculating strengths within the crust-
+                    c=find(yg(:,1) <= cdepth(uu)); %find the z's in the crust
+  
+                      %Br_str=S + B*z byerlies law
+                   Br_str(c)=S + B.*(yg(c,uu));
+
+                      %Duc-str = [st_rate/A_d]^(1/n)* e^(Q/nRT);
+                    Duc_str=(st_rate./A_dc).^(1./nc) .* exp(Qc./(nc.*R.*(ztmp(c,uu)+273)))*1e-6;
+
+            %Calculating strengths within the mantle
+
+                   c=find(yg(:,1) >  cdepth(uu)); %find the z's below the crust
+
+                      %Br_str=S + B*z byerlies law
+                    Br_str(c)=S + B.*(yg(c,uu));
+
+                      %Duc-str = [st_rate/A_d]^(1/n)* e^(Q/nRT);
+                    Duc_str(c)=(st_rate./A_dm).^(1./nm) .* exp(Qm./(nm.*R.*(ztmp(c,uu)+273)))*1e-6;
+
+                    strength1(:,uu)=min([Br_str(:) Duc_str(:)]')';
+                    cc2=find(yg(:,1) > modbot(uu));
+                    strength1(cc2,uu)=NaN;                
+         end          
+    end
+
+    instrength=[];
+
+    cnt6=1;
+    for uu=1:length(cdepth);
+        if isnan(cdepth(uu)) == 0 
+        c=find(yg(:,1) < modbot(uu));
+
+        %if cnt6==1;
+            instrength(uu)=trapz((yg(c,uu))*1000, strength1(c,uu)*1e6 );   
+        %    cnt6=2;
+       % else
+
+        %    instrength(uu)=trapz(z1(1:2:end,uu), strength1(1:2:end,uu));
+         %   cnt6=1;
+
+        %end
+
+        end
+    end
+    
+    
+    %Plot temperature profile
+    subplot(3,4,[1,2,3]);
+
+x1=xtmp(1:2:end,:); 
+y1=ytmp(1:2:end,:)-modelbase; 
+t1=timesteptmp(1:2:end,:);
+
+tg=griddata(x1,y1,t1,xg,yg);
+pcolor(xtmp(1:2:end,:), ytmp(1:2:end,:)-modelbase, timesteptmp(1:2:end,:)); shading interp
+%pcolor(xg,yg,zg); shading interp;
+xlim([-500 1500]);ylim([(-modelbase-10) 5])
+%[xg yg]=meshgrid(-500:20:1500,-1*modelbase-10:1:0);
+hold on, plot(xtmp(17,:),ytmp(17,:)-modelbase,'k'); % 13 is the number of crust rows*2+1, insert 17
+hf_cnt=hf_cnt+1;
+%crustal thickness
+%ct_out(:,hf_cnt)=ytmp(1,:)-ytmp(17,:);
+box off
+%lithosphere 
+lt_out(:,hf_cnt)=ytmp(1,:)-ytmp(end,:);
+
+set(gca,'Xtick', []);
+
+%title('Temperature')
+ylabel('Depth (km)');
+cptcmap('GMT_haxby');
+
+set(findall(gcf,'-property','FontSize'),'FontSize',12);
+text(-500, 10,[ 'Time=' num2str(((stint-1)/tsval)+1+timehist) ' m.y. into model run'], 'clipping', 'off')
+% 
+
+%PLot geotherm
+%Define temperature in grid
+%tt=meshgrid(x1,y1);
+tt=[xtmp(1:2:end,:),ytmp(1:2:end,:)-modelbase,timesteptmp(1:2:end,:)];
+%Define temperature in grid
+ subplot(3,4,[4]);
+%plot(strength1(1:end,800),'b', 'linewidth', 2.5)
+plot(tt(1:end,181),'b', 'linewidth',10)
+ ylim([0 1500]);xlim ([0 modelbase])
+ylabel('Strength(MPa)');
+ xlabel('Depth (km)');
+%title('Strength Profile');
+box off
+view([90 90])
+ %set(gca,'FontSize',40) 
+  
+
+
+ subplot(3,4,[9,10,11]);
+     
+%plot integrated strength graph   
+ 
+  plot(xg(3,1:length(instrength)-20), (instrength(1:end-20)),'bl', 'linewidth', 10)
+    xlim([-500 1500])
+ 
+    x_pos = xg(3,1:length(instrength)-20);
+    lengthX = length(x_pos);
+    y_pos = instrength(1:end-20);
+    ylabel('Pa');
+    box off
+    xlabel('Rift Width (km)');
+    % title('Integrated Strength','fontsize',40,'fontweight', 'bold');
+    
+%Plot star symbol at min instrength   
+
+    hold on
+    for minstr = ((instrength(:))) 
+        minstr1 = minstr(minstr>0); 
+        idxmin = ((min(minstr1))); 
+        x_star = x_pos(y_pos==idxmin);
+       plot(x_star,idxmin, 'p',...
+           'MarkerFaceColor','red',...
+           'MarkerSize',50)
+    end
+ %Plot star symbol at min instrength  
+ 
+ subplot(3,4,[8,12]);
+
+ % plot X-Mas tree (Where Strength is weakest??, Strength with depth)
+%plot(strength1(1:end,800),'b', 'linewidth', 2.5)
+plot(strength1(1:end,1002),'b', 'linewidth',10)
+ ylim([0 700]);xlim ([0 modelbase])
+ylabel('Strength(MPa)');
+ xlabel('Depth (km)');
+%title('Strength Profile');
+box off
+view([90 90])
+ %set(gca,'FontSize',40)
+ 
+    
+    
+     c = gray;
+   c = flipud(c);
+ mymap=[
+245 245 245
+244 244 244
+243 243 243
+242 242 242
+241 241 241
+240 240 240
+239 239 239
+238 238 238
+237 237 237
+236 236 236
+235 235 235
+234 234 234
+233 233 233
+232 232 232
+231 231 231
+230 230 230
+229 229 229
+228 228 228
+227 227 227
+226 226 226
+225 225 225
+224 224 224
+223 223 223
+222 222 222
+221 221 221
+220 220 220
+219 219 219
+218 218 218
+217 217 217
+216 216 216
+215 215 215
+214 214 214
+213 213 213
+212 212 212
+211 211 211
+210 210 210
+209 209 209
+208 208 208
+207 207 207
+206 206 206
+205 205 205
+204 204 204
+203 203 203
+202 202 202
+201 201 201
+200 200 200
+199 199 199
+198 198 198
+197 197 197
+196 196 196
+195 195 195
+194 194 194
+193 193 193
+192 192 192
+191 191 191
+190 190 190
+189 189 189
+188 188 188
+187 187 187
+186 186 186
+185 185 185
+184 184 184
+183 183 183
+182 182 182
+181 181 181
+180 180 180
+179 179 179
+178 178 178
+177 177 177
+176 176 176
+175 175 175
+174 174 174
+173 173 173
+172 172 172
+171 171 171
+170 170 170
+169 169 169
+168 168 168
+167 167 167
+166 166 166
+165 165 165
+164 164 164
+163 163 163
+162 162 162
+161 161 161
+160 160 160
+159 159 159
+158 158 158
+157 157 157
+156 156 156
+155 155 155
+154 154 154
+153 152 152
+152 151 151
+151 150 150
+150 149 149
+149 148 148
+148 147 147
+147 146 146
+146 145 145
+145 144 144
+144 143 143
+143 142 142
+142 141 141
+141 140 140
+140 139 139
+139 138 138
+138 137 137
+137 136 136
+136 135 135
+135 134 134
+133 133 133
+132 132 132
+131 131 131
+130 130 130
+129 129 129
+128 128 128
+127 127 127
+126 126 126
+125 125 125
+124 124 124
+123 123 123
+122 122 122
+121 121 121
+120 120 120
+119 119 119
+118 118 118
+117 117 117
+116 116 116
+115 115 115
+114 114 114
+113 113 113
+112 112 112
+111 111 111
+110 110 110
+109 109 109
+108 108 108
+107 107 107
+106 106 106
+105 105 105
+104 104 104
+103 103 103
+102 102 102
+101 101 101
+100 100 100
+99 99 99
+98 98 98
+97 97 97
+96 96 96
+95 95 95
+94 94 94
+93 93 93
+92 92 92
+91 91 91
+90 90 90
+89 89 89
+88 88 88
+87 87 87
+86 86 86
+85 85 85
+84 84 84
+84 83 83
+83 82 82
+82 81 81
+81 80 80
+80 79 79
+79 78 78
+78 77 77
+77 77 77
+76 76 76
+75 75 75
+74 74 74
+73 73 73
+72 72 72
+71 71 71
+70 70 70
+69 69 69
+68 68 68
+67 67 67
+66 66 66
+65 65 65
+64 64 64
+63 63 63
+62 62 62
+61 61 61
+60 60 60
+59 59 59
+58 58 58
+57 57 57
+56 56 56
+55 55 55
+54 54 54
+53 53 53
+52 52 52
+51 51 51
+50 50 50
+49 49 49
+48 48 48
+47 47 47
+46 46 46
+45 45 45
+44 44 44
+43 43 43
+42 42 42
+41 41 41
+40 40 40
+39 39 39
+38 38 38
+37 37 37
+36 36 36
+35 35 35
+34 34 34
+33 33 33
+32 32 32
+31 31 31
+30 30 30
+29 29 29
+28 28 28
+27 27 27
+26 26 26
+25 25 25
+24 24 24
+23 23 23
+22 22 22
+21 21 21
+20 20 20
+19 19 19
+18 18 18
+17 17 17
+16 16 16
+15 15 15
+14 14 14
+13 13 13
+12 12 12
+11 11 11
+10 10 10
+9 9 9
+8 8 8
+7 7 7
+6 6 6
+5 5 5
+4 4 4
+3 3 3
+2 2 2
+1 1 1
+0 0 0];
+   colormap(mymap/255);
+%Plot strength profile
+   subplot(3,4,[5,6,7]);
+pcolor(xg,yg*-1,strength1);  shading interp
+title('Strength (MPa)  ','fontsize', 30, 'fontweight', 'bold');
+   % colorbar('southoutside');
+set(gca,'Clim',  [0 600]);
+    set(gca,'fontsize', 10, 'fontweight', 'bold');
+     %crustal thickness=> Alex added this, not right?
+    hf_cnt=hf_cnt+1;
+    %ct_out(:,hf_cnt)=ytmp(1,:)-ytmp(17,:);
+    %lithosphere 
+    lt_out(:,hf_cnt)=ytmp(1,:)-ytmp(end,:); 
+%plot CRUST THICKNESS
+    hold on;
+    plot(xg(1,:), cdepth*-1,'b', 'linewidth', 2.5)
+
+    set(gca,'fontsize', 10, 'fontweight', 'bold');
+text(-500, 10,[ 'Time=' num2str(((stint-1)/tsval)+1+timehist) ' m.y. into model run'], 'clipping', 'off')
+
+
+%         
+        Timef=0;
+       frame_cnt=frame_cnt+1;
+       f=zeros(1,frame_cnt);Timef=(1:frame_cnt);% turns frame_cnt into an array
+       F(frame_cnt)=getframe(gcf);
+     
+
+ hf_cnt=hf_cnt+1;
+%crustal thickness
+ct_out=ytmp(1,:)-ytmp(17,:);       
+%make movie stop when crust reaches 8 km thick( Because this is when
+%seafloor spreading starts)!!!
+for crust=(1:numel(ct_out)); %loop through each iteration of the array
+    element = ct_out(crust);
+    if element<= 7 % when element in array is <=7 (I picked 7 instead of 8)....
+      getframe % get the rest of the figure and...
+      return % stop
+   end
+end
+%make movie stop when crust reaches 8 km thick!!!
+     
+  %If statement that allows script to pause when desired     
+    % if time_cnt==15
+     %     return
+     % end
+  %If statement that allows script to pause when desired  
+        
+      
+               
+%Make array of where rift is weakest at specified timestep
+  %x_start=[zeros(1:20)]      
+            
+            x_start= [x_star]
+           
+
+%Make array of where rift is weakest at specified timestep      
+        
+end
+
+
+%PLOT ALL STRENGTH AT END
+%load instrength2.mat
+%load instrength3.mat
+%load instrength4.mat
+
+ %subplot(3,1,2);
+  % plot(xg(3,1:length(instrength)-20), instrength1,'r', 'linewidth', 4)
+   %hold on, plot(xg(3,1:length(instrength)-170), instrength2,'b', 'linewidth', 2)
+  % hold on, plot(xg(3,1:length(instrength)-120), instrength3,'b', 'linewidth', 2)
+   %hold on, plot(xg(3,1:length(instrength)-70), instrength4,'b', 'linewidth', 2)
+    %xlim([modelleft modelright])
+ 
+    %x_pos = xg(3,1:length(instrength)-20);
+    %y_pos = instrength(1:end-20);
+    %title('Integrated Strength')
+
+
+
+%close (fig1);
+%mov=close(mov);
+cd ../
+vidObj = VideoWriter('HP.75_lt100_X-Mas.avi');
+vidObj.FrameRate=5;
+vidObj.Quality=100;
+open(vidObj);
+writeVideo(vidObj,F);
+close(vidObj);
+
+
+%__________________________________________________
+% 
+%                         c=find(z < h); %find the z's in the crust
+%                         %_____________________________________
+%                         %Calculating strengths within the crust-
+%                         
+% 
+%                           %Br_str=S + B*z byerlies law
+%                         Br_str(c)=S + B.*z(c);
+% 
+%                           %Duc-str = [st_rate/A_d]^(1/n)* e^(Q/nRT);
+%                         Duc_str(c)=(st_rate./A_dc).^(1./nc) .* exp(Qc./(nc.*R.*T(c)));
+% 
+% 
+%                         %_____________________________________
+%                         %Calculating strengths within the mantle
+%                     
+%                         c=find(z >= h); %find the z's below the crust
+% 
+%                           %Br_str=S + B*z byerlies law
+%                         Br_str(c)=S + B.*z(c);
+% 
+%                           %Duc-str = [st_rate/A_d]^(1/n)* e^(Q/nRT);
+%                         Duc_str(c)=(st_rate./A_dm).^(1./nm) .* exp(Qc./(nm.*R.*T(c)));
+% 
+% 
+% 
+%                         strength=min([Br_str(:) Duc_str(:)]');
+%__________________________________________________
