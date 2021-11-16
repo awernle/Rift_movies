@@ -1,36 +1,40 @@
 %This version of the strength script has been edited by Alex Wernle for
-%different grids and geometries. THIS SCRIPT ONLY WORKS IF IT IS WITHIN THE
-%FILE YOU ARE READING
+%different grids and geometries. Script must be in the same directory as input files
+
+% establish figure attributes
 figure('position', [.2 .2 1500 750])
 %fig1=figure('position', [100 100 1000 1000]);
 set(gcf, 'color', 'white');
 
-
+% clear any previous data
 clear numcols1 numcols2 numrows modelbase tsval temp_data xy_data y_data x_data;
 clear vel_data vx_data vy_data; 
 clear all
 
-%number of time-steps in each file=> must change to save the avi file
+% number of time-steps in each file=> must change to save the avi file
 trang=40;
 %keep track of time when switching directories
 timehist=0;
 %open the file for the movie
 timetmp=clock;
+
 %Define domain size--currently set for a 20x40 grid
 numcols1=81; % #of nodes within rows with max nodes
 numcols2=41;
 numrows=41;
 
-% MUST CHANGE MODELBASE TO MATCH THE LITHOSPHERIC THICKNESS
+% CHANGE MODELBASE TO MATCH THE LITHOSPHERIC THICKNESS
 modelbase=100;
-% MUST CHANGE MODELBASE TO MATCH THE LITHOSPHERIC THICKNESS
 modelright=1500;
 model_left=-500
+
 %node # at bottom of the crust= # of crustRows*2 +1
 botcrust=17;
+
+% Input variables for below functions
 A_dc=1.0e-18;% 5.0e-18
     A_dm=4e-25;
-    Qc=219*1000;%Variables are correct
+    Qc=219*1000;
     Qm=498*1000;
     nc=2.4; 
     nm=4.5; 
@@ -39,7 +43,7 @@ A_dc=1.0e-18;% 5.0e-18
     R=8.3;
     st_rate=1e-14;% 1.0e-15?
 
-    %number of nodes in domain - i.e., number of values to read per time step
+%number of nodes in domain - i.e., number of values to read per time step
 tsval=numcols1*ceil(numrows/2)+numcols2*floor(numrows/2)+1
 
 clear F
@@ -99,15 +103,13 @@ fclose(fid);
 
 %size of region, x and y
 [xg yg]=meshgrid(model_left:1:modelright,0:1:modelbase);
-
 %yg=(yg-20);
 
 % [xg yg]=meshgrid(-600:2:1500,0:2:300);%----------FROM EPSL GRID----------------
 
 cnt=0;
 
-
-%go through each timestep
+% Iterate through each timestep
 for stint=1:tsval:tsval*trang;
 
     
@@ -161,8 +163,6 @@ for stint=1:tsval:tsval*trang;
 
          end
 
- 
-
          if cnt==numrows
              cnt=0;
          end
@@ -170,10 +170,6 @@ for stint=1:tsval:tsval*trang;
     end
     clf 
         
-        
-   % h=39; %initial crustal thickness- no longer used
-
-    
 
    strength1=zeros(size(xg))*NaN;
 
